@@ -58,9 +58,8 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
   line-height: .83;
   letter-spacing: -.02em;
   font-weight: 700;
-  transform-origin: center top;
+  transform-origin: center var(--greeting-anchor, 100%);
   transform: scale(var(--greeting-scale, 1));
-  opacity: var(--greeting-opacity, 1);
   white-space: nowrap;
   user-select: none;
 }
@@ -201,17 +200,17 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
     font-size: 35.3cqw;
     line-height: .86;
     letter-spacing: -.023em;
-    transform-origin: left top;
+    transform-origin: left var(--greeting-anchor, 100%);
   }
   .greeting span { display: block; }
   .guide {
     --unit: calc(100cqw / 390);
     --avatar-size: calc((139 - 61 * var(--hero-progress, 0)) * var(--unit));
-    top: var(--guide-top, calc(203 * var(--unit)));
+    top: var(--guide-top, calc(246 * var(--unit)));
   }
   .avatar { left: calc(6 * var(--unit)); top: calc(10px * var(--hero-progress, 0)); }
   .bubble {
-    top: calc((47 - 28 * var(--hero-progress, 0)) * var(--unit));
+    top: calc((8 + 11 * var(--hero-progress, 0)) * var(--unit));
     left: calc((156 - 68 * var(--hero-progress, 0)) * var(--unit));
     width: calc((217 - 17 * var(--hero-progress, 0)) * var(--unit));
     padding: 12px clamp(9px, 3.33cqw, 14px);

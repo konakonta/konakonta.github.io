@@ -1,4 +1,5 @@
 const canvas = document.querySelector(".canvas");
+const greeting = document.querySelector(".greeting");
 const guide = document.querySelector(".guide");
 const bubble = document.querySelector("#bubble");
 const bubbleSize = document.querySelector("#bubble-size");
@@ -75,16 +76,17 @@ function updateScroll() {
   const mobile = smallScreen.matches;
   const width = canvas.clientWidth;
   const unit = width / (mobile ? 390 : 1280);
-  const start = (mobile ? 203 : 226) * unit;
+  const start = (mobile ? 246 : 226) * unit;
+  // Anchor the bottom of the letters 18 design pixels above the guide.
+  const greetingBottom = start - 18 * unit;
   const y = Math.max(0, scrollY);
   const progress = Math.min(1, y / Math.max(start, 1));
-  const eased = progress * (2 - progress);
 
   guide.style.setProperty("--guide-top", Math.max(0, start - y) + "px");
   guide.toggleAttribute("data-pinned", y >= start);
   canvas.style.setProperty("--hero-progress", progress);
-  canvas.style.setProperty("--greeting-scale", 1 - .94 * eased);
-  canvas.style.setProperty("--greeting-opacity", Math.max(0, 1 - progress * 1.27));
+  greeting.style.setProperty("--greeting-anchor", greetingBottom + "px");
+  greeting.style.setProperty("--greeting-scale", Math.max(0, 1 - y / Math.max(greetingBottom, 1)));
 
   let active = introduction;
   const projectLine = Math.min(mobile ? 240 : 330, innerHeight * .43);
