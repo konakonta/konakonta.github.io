@@ -1,6 +1,5 @@
 const canvas = document.querySelector(".canvas");
 const greeting = document.querySelector(".greeting");
-const guide = document.querySelector(".guide");
 const bubble = document.querySelector("#bubble");
 const bubbleSize = document.querySelector("#bubble-size");
 const typed = document.querySelector("#typed");
@@ -82,8 +81,7 @@ function updateScroll() {
   const y = Math.max(0, scrollY);
   const progress = Math.min(1, y / Math.max(start, 1));
 
-  guide.style.setProperty("--guide-top", Math.max(0, start - y) + "px");
-  guide.toggleAttribute("data-pinned", y >= start);
+  canvas.style.setProperty("--guide-top", Math.max(0, start - y) + "px");
   canvas.style.setProperty("--hero-progress", progress);
   greeting.style.setProperty("--greeting-anchor", greetingBottom + "px");
   greeting.style.setProperty("--greeting-scale", Math.max(0, 1 - y / Math.max(greetingBottom, 1)));
