@@ -33,6 +33,8 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
   margin-inline: auto;
   container-type: inline-size;
   overflow: clip;
+  isolation: isolate;
+  background: #f3f3f3;
 }
 .sr-only, .skip-link:not(:focus) {
   position: absolute;
@@ -64,17 +66,24 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
   user-select: none;
 }
 
-.guide {
+.guide, .top-menu {
   --unit: calc(100cqw / 1280);
-  --avatar-size: calc(139 * var(--unit));
   position: fixed;
-  z-index: 3;
   top: var(--guide-top, calc(226 * var(--unit)));
   left: 50%;
   translate: -50% 0;
   width: min(100%, 1440px);
   min-height: 64px;
   pointer-events: none;
+}
+.guide {
+  --avatar-size: calc(139 * var(--unit));
+  z-index: 3;
+}
+.top-menu {
+  z-index: 2;
+  color: white;
+  mix-blend-mode: difference;
 }
 .avatar, .bubble, .index-link, .clock, .globe, .contact { position: absolute; }
 .avatar {
@@ -125,11 +134,6 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 }
 .index-link, .contact { pointer-events: auto; text-decoration: none; }
 .index-link:hover, .contact:hover { text-decoration: underline; }
-.guide[data-pinned] :is(.index-link, .clock, .contact) {
-  background: #f3f3f3;
-  box-shadow: 0 0 0 3px #f3f3f3;
-  border-radius: 2px;
-}
 .index-link { left: calc(438 * var(--unit)); }
 .clock { left: calc(850 * var(--unit)); }
 .globe {
@@ -137,7 +141,7 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
   left: calc(991 * var(--unit));
   width: clamp(36px, 5.16cqw, 66px);
 }
-.globe img { width: 100%; height: auto; }
+.globe img { width: 100%; height: auto; filter: invert(1); }
 .contact { right: calc(25 * var(--unit)); }
 
 .project {
@@ -146,7 +150,7 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
   height: calc(var(--height) * var(--unit));
   scroll-margin-top: 175px;
 }
-.token { --height: 1407; }
+.token { --height: 1494; }
 .festival { --height: 1105; }
 .digital { --height: 1100; }
 .personal { --height: 2162; }
@@ -176,6 +180,7 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
   display: block;
 }
 .piece img { width: 100%; height: 100%; object-fit: cover; }
+.piece.token-cover { height: auto; }
 .token-poster {
   background: url("./token-posters.webp") no-repeat 49.371% 94.521% / 296.578%;
 }
@@ -203,14 +208,14 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
     transform-origin: left var(--greeting-anchor, 100%);
   }
   .greeting span { display: block; }
-  .guide {
+  .guide, .top-menu {
     --unit: calc(100cqw / 390);
-    --avatar-size: calc((139 - 61 * var(--hero-progress, 0)) * var(--unit));
     top: var(--guide-top, calc(246 * var(--unit)));
   }
+  .guide { --avatar-size: calc((139 - 61 * var(--hero-progress, 0)) * var(--unit)); }
   .avatar { left: calc(6 * var(--unit)); top: calc(10px * var(--hero-progress, 0)); }
   .bubble {
-    top: calc((8 + 11 * var(--hero-progress, 0)) * var(--unit));
+    top: calc((34 - 15 * var(--hero-progress, 0)) * var(--unit));
     left: calc((156 - 68 * var(--hero-progress, 0)) * var(--unit));
     width: calc((217 - 17 * var(--hero-progress, 0)) * var(--unit));
     padding: 12px clamp(9px, 3.33cqw, 14px);
@@ -221,16 +226,15 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
     clip-path: inset(0 round 1px 18px 18px 18px);
   }
   .bubble[data-state="closed"] { clip-path: inset(0 75% 55% 0 round 18px); }
-  .index-link { display: none; }
+  .index-link, .clock { display: none; }
   .contact { top: 8px; right: 4.5cqw; font-size: clamp(10px, 3.08cqw, 15px); }
-  .clock { top: 28px; right: 4.5cqw; left: auto; font-size: 8px; line-height: 12px; }
-  .globe { top: 15px; right: 29.5cqw; left: auto; width: 23px; }
+  .globe { top: 0; right: 29.5cqw; left: auto; width: 20px; }
   .project {
     --unit: calc(100cqw / 390);
     height: calc(var(--mobile-height) * var(--unit));
     scroll-margin-top: 135px;
   }
-  .token { --mobile-height: 506; }
+  .token { --mobile-height: 516; }
   .festival { --mobile-height: 686; }
   .digital { --mobile-height: 554; }
   .personal { --mobile-height: 1065; }
