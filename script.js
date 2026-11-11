@@ -10,7 +10,7 @@ const avatar = document.querySelector(".avatar");
 const clock = document.querySelector(".clock");
 const sections = [...document.querySelectorAll("[data-line]")];
 const farewellPhoto = document.querySelector(".farewell-photo");
-const projectPieces = [...document.querySelectorAll("section.project > :is(.piece, .festival-grid)")];
+const projectPieces = [...document.querySelectorAll("section.project > :is(.piece:not(.sticker), .festival-grid)")];
 const pieceScales = new WeakMap();
 const videos = [...document.querySelectorAll("video[data-src]")];
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
@@ -235,6 +235,77 @@ function scheduleScroll() {
 function refreshLayout() {
   layoutDirty = true;
   queueScrollFrame();
+}
+
+function stickerFrame(sticker) {
+  const frame = sticker.offsetParent;
+  const bounds = frame.getBoundingClientRect();
+  return { frame, bounds, scaleX: bounds.width / frame.offsetWidth };
+}
+
+function placeSticker(sticker, frame, x, y) {
+  const startX = sticker.offsetLeft;
+  const startY = sticker.offsetTop;
+  const maxX = Math.max(startX, frame.clientWidth - sticker.offsetWidth);
+  const maxY = Math.max(startY, frame.clientHeight - sticker.offsetHeight);
+  const left = Math.max(0, Math.min(maxX, x));
+  const top = Math.max(0, Math.min(maxY, y));
+  const unit = canvas.clientWidth / 100;
+  sticker.style.translate = `${(left - startX) / unit}cqw ${(top - startY) / unit}cqw`;
+}
+
+function bringStickerForward(sticker) {
+  sticker.parentElement.querySelector(".sticker[data-front]")?.removeAttribute("data-front");
+  sticker.dataset.front = "";
+}
+
+const stickerSteps = new Map([
+  ["ArrowLeft", [-12, 0]], ["ArrowRight", [12, 0]],
+  ["ArrowUp", [0, -12]], ["ArrowDown", [0, 12]],
+]);
+
+for (const sticker of document.querySelectorAll(".sticker")) {
+  let drag;
+
+  sticker.addEventListener("pointerdown", (event) => {
+    if (!event.isPrimary || event.button !== 0) return;
+    const bounds = sticker.getBoundingClientRect();
+    drag = {
+      id: event.pointerId,
+      x: (event.clientX - bounds.left) / bounds.width,
+      y: (event.clientY - bounds.top) / bounds.height,
+    };
+    sticker.setPointerCapture(drag.id);
+    bringStickerForward(sticker);
+    sticker.dataset.dragging = "";
+    event.preventDefault();
+  });
+
+  sticker.addEventListener("pointermove", (event) => {
+    if (drag?.id !== event.pointerId) return;
+    const { frame, bounds, scaleX } = stickerFrame(sticker);
+    const x = (event.clientX - bounds.left) / scaleX - drag.x * sticker.offsetWidth;
+    const y = event.clientY - bounds.top - drag.y * sticker.offsetHeight;
+    placeSticker(sticker, frame, x, y);
+  });
+
+  sticker.addEventListener("lostpointercapture", (event) => {
+    if (drag?.id !== event.pointerId) return;
+    drag = undefined;
+    sticker.removeAttribute("data-dragging");
+  });
+
+  sticker.addEventListener("keydown", (event) => {
+    const step = stickerSteps.get(event.key);
+    if (!step || event.ctrlKey || event.metaKey || event.altKey) return;
+    event.preventDefault();
+    const { frame, bounds, scaleX } = stickerFrame(sticker);
+    const position = sticker.getBoundingClientRect();
+    const x = (position.left - bounds.left + step[0]) / scaleX;
+    const y = position.top - bounds.top + step[1];
+    placeSticker(sticker, frame, x, y);
+    bringStickerForward(sticker);
+  });
 }
 
 function syncVideo(video) {

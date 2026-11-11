@@ -193,7 +193,7 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 }
 .piece img { width: 100%; height: 100%; object-fit: cover; }
 .piece.token-cover { height: auto; }
-section.project > :is(.piece, .festival-grid) {
+section.project > :is(.piece:not(.sticker), .festival-grid) {
   scale: var(--project-width, 1) 1;
   transform-origin: calc(50cqw - var(--x, 0) * var(--unit)) center;
 }
@@ -202,7 +202,15 @@ section.project > :is(.piece, .festival-grid) {
   background: url("./token-posters.webp") no-repeat 49.371% 94.521% / 296.578%;
 }
 .cap { object-position: 50% 82.609%; }
-.sticker { pointer-events: none; }
+.sticker {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.sticker[data-front] { z-index: 1; }
+.sticker[data-dragging] { cursor: grabbing; }
+.sticker:focus-visible { outline: 2px dashed currentColor; outline-offset: 3px; }
 .circle { border-radius: 50%; }
 .digital-video { border-radius: calc(21 * var(--unit)); background: #1d1d1d; }
 .digital-animal { object-position: 46.667% 60.377%; }
@@ -304,7 +312,7 @@ section.project > :is(.piece, .festival-grid) {
   .festival-tote { grid-area: tote; }
   .festival-pouch { grid-area: pouch; }
   .festival-keychain { grid-area: keychain; }
-  section.project > :is(.piece, .festival-grid) {
+  section.project > :is(.piece:not(.sticker), .festival-grid) {
     transform-origin: calc(50cqw - var(--mx, 0) * var(--unit)) center;
     transition: scale 140ms cubic-bezier(.2,.65,.3,1);
   }
@@ -325,5 +333,5 @@ section.project > :is(.piece, .festival-grid) {
   .avatar picture { transition: none; }
   .bubble { transition: none; }
   .greeting { transform: none; transition: none; }
-  section.project > :is(.piece, .festival-grid) { scale: none; transition: none; }
+  section.project > :is(.piece:not(.sticker), .festival-grid) { scale: none; transition: none; }
 }
