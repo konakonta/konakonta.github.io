@@ -268,6 +268,11 @@ section.project > .piece {
     width: calc(var(--mw) * var(--unit));
     height: calc(var(--mh) * var(--unit));
   }
+  .farewell-photo {
+    left: 50%;
+    top: calc(var(--my) * var(--unit) - 150px);
+    translate: -50% 0;
+  }
   section.project > .piece {
     transform-origin: calc(50cqw - var(--mx) * var(--unit)) center;
     transition: scale 140ms cubic-bezier(.2,.65,.3,1);

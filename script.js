@@ -7,6 +7,7 @@ const speech = document.querySelector("#speech");
 const avatar = document.querySelector("#liza");
 const clock = document.querySelector(".clock");
 const sections = [...document.querySelectorAll("[data-line]")];
+const farewellPhoto = document.querySelector(".farewell-photo");
 const projectPieces = [...document.querySelectorAll("section.project > .piece")];
 const pieceScales = new WeakMap();
 const videos = [...document.querySelectorAll("video[data-src]")];
@@ -114,8 +115,13 @@ function updateScroll() {
   for (const section of sections) {
     const top = section.getBoundingClientRect().top;
     if (section.classList.contains("farewell")) {
-      const photoInset = (mobile ? 392 : 164) * unit;
-      if (top + photoInset <= innerHeight * .82) active = section.dataset.line;
+      let photoTop = top + 164 * unit;
+      if (mobile) {
+        const photo = farewellPhoto.getBoundingClientRect();
+        // The transparent GIF has a border above the visible photograph.
+        photoTop = photo.top + photo.height / 3;
+      }
+      if (photoTop <= innerHeight * .82) active = section.dataset.line;
     } else if (top <= projectLine) {
       active = section.dataset.line;
     }
