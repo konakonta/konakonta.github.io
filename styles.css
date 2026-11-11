@@ -193,10 +193,11 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 }
 .piece img { width: 100%; height: 100%; object-fit: cover; }
 .piece.token-cover { height: auto; }
-section.project > .piece {
+section.project > :is(.piece, .festival-grid) {
   scale: var(--project-width, 1) 1;
-  transform-origin: calc(50cqw - var(--x) * var(--unit)) center;
+  transform-origin: calc(50cqw - var(--x, 0) * var(--unit)) center;
 }
+.festival-grid { position: absolute; inset: 0; }
 .token-poster {
   background: url("./token-posters.webp") no-repeat 49.371% 94.521% / 296.578%;
 }
@@ -282,8 +283,29 @@ section.project > .piece {
     top: calc(var(--my) * var(--unit) - 150px);
     translate: -50% 0;
   }
-  section.project > .piece {
-    transform-origin: calc(50cqw - var(--mx) * var(--unit)) center;
+  .festival-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: calc(161 * var(--unit)) calc(194 * var(--unit)) calc(265 * var(--unit));
+    grid-template-areas: "caps caps" "pouch merch" "tote keychain";
+    align-content: start;
+    gap: calc(2 * var(--unit));
+    padding-top: calc(19 * var(--unit));
+  }
+  .festival-grid > .piece:not(.sticker) {
+    position: static;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+  }
+  .festival-grid > .cap { grid-area: caps; }
+  .festival-grid > .circle { grid-area: merch; }
+  .festival-tote { grid-area: tote; }
+  .festival-pouch { grid-area: pouch; }
+  .festival-keychain { grid-area: keychain; }
+  section.project > :is(.piece, .festival-grid) {
+    transform-origin: calc(50cqw - var(--mx, 0) * var(--unit)) center;
     transition: scale 140ms cubic-bezier(.2,.65,.3,1);
   }
   .digital-video { border-radius: calc(10 * var(--unit)); }
@@ -303,5 +325,5 @@ section.project > .piece {
   .avatar picture { transition: none; }
   .bubble { transition: none; }
   .greeting { transform: none; transition: none; }
-  section.project > .piece { scale: none; transition: none; }
+  section.project > :is(.piece, .festival-grid) { scale: none; transition: none; }
 }
