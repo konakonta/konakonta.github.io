@@ -7,6 +7,9 @@ const speech = document.querySelector("#speech");
 const avatar = document.querySelector("#liza");
 const clock = document.querySelector(".clock");
 const sections = [...document.querySelectorAll("[data-line]")];
+const projects = sections.filter((section) => section.matches("section.project"));
+const projectPieces = [...document.querySelectorAll("section.project > .piece")];
+const projectEdges = [...document.querySelectorAll(".project-edge")];
 const videos = [...document.querySelectorAll("video[data-src]")];
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const smallScreen = matchMedia("(max-width: 650px)");
@@ -70,6 +73,39 @@ function showLine(text, { animate = true } = {}) {
   }, 125);
 }
 
+function updateProjectEdges(mobile) {
+  if (reduceMotion.matches || !projectEdges.length || !projects.length) return;
+
+  const height = innerHeight;
+  const depth = mobile ? Math.min(128, height * .16) : Math.min(180, height * .19);
+  const galleryTop = projects[0].getBoundingClientRect().top;
+  const galleryBottom = projects.at(-1).getBoundingClientRect().bottom;
+  const pieceWidths = projectPieces.map((piece) => {
+    const { top, bottom } = piece.getBoundingClientRect();
+    if (bottom <= 0 || top >= height) return 1;
+    const center = (top + bottom) / 2;
+    const distance = Math.min(center, height - center);
+    const progress = Math.max(0, Math.min(1, 1 - distance / (depth * 1.25)));
+    const eased = progress * progress * (3 - 2 * progress);
+    return 1 + eased * (mobile ? .036 : .048);
+  });
+
+  canvas.style.setProperty("--edge-depth", depth + "px");
+  for (const edge of projectEdges) {
+    const top = edge.classList.contains("project-edge-bottom") ? height - depth : 0;
+    const clipStart = Math.max(0, galleryTop - top);
+    const clipEnd = Math.max(0, top + depth - galleryBottom);
+    edge.hidden = clipStart + clipEnd >= depth;
+    if (!edge.hidden) {
+      edge.style.setProperty("--edge-clip-start", clipStart + "px");
+      edge.style.setProperty("--edge-clip-end", clipEnd + "px");
+    }
+  }
+  projectPieces.forEach((piece, index) => {
+    piece.style.setProperty("--project-width", pieceWidths[index].toFixed(4));
+  });
+}
+
 function updateScroll() {
   scrollFrame = 0;
   const mobile = smallScreen.matches;
@@ -98,6 +134,7 @@ function updateScroll() {
     }
   }
   showLine(active);
+  updateProjectEdges(mobile);
 }
 
 function scheduleScroll() {
@@ -141,6 +178,7 @@ addEventListener("pageshow", scheduleScroll);
 reduceMotion.addEventListener("change", () => {
   showLine(line ?? introduction, { animate: false });
   videos.forEach(syncVideo);
+  scheduleScroll();
 });
 updateClock();
 setInterval(updateClock, 250);
