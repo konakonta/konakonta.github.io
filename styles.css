@@ -193,11 +193,13 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 }
 .piece img { width: 100%; height: 100%; object-fit: cover; }
 .piece.token-cover { height: auto; }
-.drum-card {
-  transform: scaleX(var(--drum-scale, 1));
-  transform-origin: var(--drum-origin, center) center;
+.drum-card { position: absolute; inset: 0; isolation: isolate; }
+.drum-strip {
+  position: absolute;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(transparent, black var(--drum-feather));
+  mask-image: linear-gradient(transparent, black var(--drum-feather));
 }
-.drum-collage { position: absolute; inset: 0; }
 .token-poster {
   background: url("./token-posters.webp") no-repeat 49.371% 94.521% / 296.578%;
 }
@@ -337,5 +339,4 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
   .avatar picture { transition: none; }
   .bubble { transition: none; }
   .greeting { transform: none; transition: none; }
-  .drum-card { transform: none; }
 }

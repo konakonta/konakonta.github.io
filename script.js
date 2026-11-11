@@ -12,10 +12,14 @@ const sections = [...document.querySelectorAll("[data-line]")];
 const farewellPhoto = document.querySelector(".farewell-photo");
 const drumCards = [...document.querySelectorAll(".drum-card")].map((card) => ({
   card,
-  pieces: card.classList.contains("drum-collage") ? [...card.querySelectorAll(".piece:not(.sticker)")] : [card],
+  pieces: [...card.querySelectorAll(".piece")],
 }));
-const drumScales = new WeakMap();
+const drumStrips = new WeakMap();
+const drumImages = new Map();
+const drumBandFraction = .08;
+const drumMaximumSqueeze = .08;
 const drumCurveMaximum = Math.expm1(5);
+let drumVideoPlaying = false;
 const videos = [...document.querySelectorAll("video[data-src]")];
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const smallScreen = matchMedia("(max-width: 650px)");
@@ -118,20 +122,158 @@ function showLine(text, { animate = true } = {}) {
   });
 }
 
-function updateDrum(cards, y) {
-  if (reduceMotion.matches) return;
+function getDrumImage(url) {
+  if (!url) return null;
+  if (!drumImages.has(url)) {
+    const image = new Image();
+    image.addEventListener("load", scheduleScroll, { once: true });
+    image.src = url;
+    drumImages.set(url, image);
+  }
+  const image = drumImages.get(url);
+  return image.complete && image.naturalWidth ? image : null;
+}
 
+function getDrumSource({ piece, background }) {
+  if (piece instanceof HTMLVideoElement) {
+    return piece.readyState >= 2 ? piece : getDrumImage(piece.poster);
+  }
+  if (piece instanceof HTMLImageElement) {
+    return piece.complete && piece.naturalWidth ? piece : null;
+  }
+  return getDrumImage(background);
+}
+
+function paintDrumPiece(context, item, source) {
+  const { left, top, width, height, position, backgroundZoom, radius } = item;
+  const sourceWidth = source.videoWidth || source.naturalWidth;
+  const sourceHeight = source.videoHeight || source.naturalHeight;
+  const zoom = backgroundZoom
+    ? width * backgroundZoom / sourceWidth
+    : Math.max(width / sourceWidth, height / sourceHeight);
+  const drawWidth = sourceWidth * zoom;
+  const drawHeight = sourceHeight * zoom;
+
+  context.save();
+  context.beginPath();
+  context.roundRect(left, top, width, height, radius);
+  context.clip();
+  context.drawImage(source,
+    left + (width - drawWidth) * position[0],
+    top + (height - drawHeight) * position[1],
+    drawWidth, drawHeight);
+  context.restore();
+}
+
+function hideDrumStrip(strip) {
+  if (!strip?.visible) return;
+  strip.output.hidden = true;
+  strip.visible = false;
+  for (const piece of strip.clipped) piece.style.removeProperty("clip-path");
+  strip.clipped.clear();
+}
+
+function createDrumStrip(card) {
+  const output = document.createElement("canvas");
+  output.className = "drum-strip";
+  output.setAttribute("aria-hidden", "true");
+  output.hidden = true;
+  const source = document.createElement("canvas");
+  card.append(output);
+  return {
+    output,
+    source,
+    outputContext: output.getContext("2d"),
+    sourceContext: source.getContext("2d"),
+    clipped: new Set(),
+    visible: false,
+    playing: false,
+  };
+}
+
+function clipDrumPiece(item, bandTop, bandBottom) {
+  const top = Math.max(0, bandTop - item.top);
+  const bottom = Math.min(item.height, bandBottom - item.top);
+  // Keep the original pixels on both sides of the strip.
+  item.piece.style.clipPath = `polygon(0 0, 100% 0, 100% ${top}px, 0 ${top}px, 0 ${bottom}px, 100% ${bottom}px, 100% 100%, 0 100%)`;
+}
+
+function updateDrum(cards, y, layoutChanged) {
   const viewport = window.visualViewport;
   const height = viewport?.height || innerHeight;
-  const viewportTop = y + (viewport?.offsetTop ?? 0);
-  for (const { card, pageBottom } of cards) {
-    const bottom = pageBottom - viewportTop;
-    const t = clampProgress((bottom / height - .62) / .38);
-    const scale = 1 - .08 * Math.expm1(5 * t) / drumCurveMaximum;
-    if (scale === drumScales.get(card)) continue;
-    drumScales.set(card, scale);
-    card.style.setProperty("--drum-scale", scale);
+  const viewportBottom = y + (viewport?.offsetTop ?? 0) + height;
+  const bandHeight = height * drumBandFraction;
+  const bandTop = viewportBottom - bandHeight;
+  const feather = Math.min(8, bandHeight * .16);
+  const density = Math.min(2, window.devicePixelRatio || 1);
+  let playing = false;
+
+  for (const { card, pageTop, left, width, pieces } of cards) {
+    let strip = drumStrips.get(card);
+    if (!layoutChanged && !strip?.playing) continue;
+
+    const localTop = bandTop - pageTop;
+    const localBottom = viewportBottom - pageTop;
+    const items = pieces.filter((item) => item.top < localBottom && item.top + item.height > localTop);
+    if (reduceMotion.matches || !items.length || width <= 0 || bandHeight <= 0) {
+      hideDrumStrip(strip);
+      if (strip) strip.playing = false;
+      continue;
+    }
+
+    const media = items.map(getDrumSource);
+    if (media.some((source) => !source)) {
+      hideDrumStrip(strip);
+      if (strip) strip.playing = false;
+      continue;
+    }
+
+    if (!strip) {
+      strip = createDrumStrip(card);
+      drumStrips.set(card, strip);
+    }
+    strip.playing = media.some((source) => source instanceof HTMLVideoElement && !source.paused && !source.ended);
+    playing ||= strip.playing;
+
+    const pixelWidth = Math.ceil(width * density);
+    const pixelHeight = Math.ceil(bandHeight * density);
+    for (const layer of [strip.source, strip.output]) {
+      if (layer.width !== pixelWidth) layer.width = pixelWidth;
+      if (layer.height !== pixelHeight) layer.height = pixelHeight;
+    }
+    const { sourceContext, outputContext, output, source } = strip;
+    sourceContext.resetTransform();
+    sourceContext.clearRect(0, 0, pixelWidth, pixelHeight);
+    const scaleX = pixelWidth / width;
+    const scaleY = pixelHeight / bandHeight;
+    sourceContext.setTransform(scaleX, 0, 0, scaleY, -left * scaleX, -localTop * scaleY);
+    items.forEach((item, index) => paintDrumPiece(sourceContext, item, media[index]));
+
+    outputContext.clearRect(0, 0, pixelWidth, pixelHeight);
+    for (let row = 0; row < pixelHeight; row++) {
+      const t = row / Math.max(1, pixelHeight - 1);
+      const squeeze = drumMaximumSqueeze * Math.expm1(5 * t) / drumCurveMaximum;
+      const rowWidth = pixelWidth * (1 - squeeze);
+      outputContext.drawImage(source, 0, row, pixelWidth, 1, (pixelWidth - rowWidth) / 2, row, rowWidth, 1);
+    }
+
+    if (layoutChanged || !strip.visible) {
+      Object.assign(output.style, {
+        left: left + "px", top: localTop + "px", width: width + "px", height: bandHeight + "px",
+      });
+      output.style.setProperty("--drum-feather", feather + "px");
+      for (const piece of strip.clipped) piece.style.removeProperty("clip-path");
+      strip.clipped.clear();
+      for (const item of items) {
+        if (item.top + item.height <= localTop + feather) continue;
+        clipDrumPiece(item, localTop + feather, localBottom);
+        strip.clipped.add(item.piece);
+      }
+      output.hidden = false;
+      strip.visible = true;
+    }
   }
+  return playing;
 }
 
 function measureLayout() {
@@ -153,15 +295,26 @@ function measureLayout() {
     return photoTop - height * .82;
   });
   const cards = drumCards.map(({ card, pieces }) => {
-    const pageBottom = Math.max(...pieces.map((piece) => piece.getBoundingClientRect().bottom)) + offset;
-    if (pieces.length === 1) return { card, pageBottom };
-    const left = Math.min(...pieces.map((piece) => piece.offsetLeft));
-    const right = Math.max(...pieces.map((piece) => piece.offsetLeft + piece.offsetWidth));
-    return { card, pageBottom, origin: (left + right) / 2 };
+    const box = card.getBoundingClientRect();
+    const artwork = pieces.map((piece) => {
+      const rect = piece.getBoundingClientRect();
+      const style = getComputedStyle(piece);
+      const background = style.backgroundImage.match(/^url\(["']?(.*?)["']?\)$/)?.[1];
+      const position = background ? style.backgroundPosition : style.objectPosition;
+      const radius = style.borderTopLeftRadius.endsWith("%")
+        ? { x: rect.width / 2, y: rect.height / 2 }
+        : parseFloat(style.borderTopLeftRadius) || 0;
+      return {
+        piece, background, radius,
+        left: rect.left - box.left, top: rect.top - box.top, width: rect.width, height: rect.height,
+        position: position.split(" ").map((value) => parseFloat(value) / 100),
+        backgroundZoom: background ? parseFloat(style.backgroundSize) / 100 : 0,
+      };
+    });
+    const left = Math.min(...artwork.map((piece) => piece.left));
+    const right = Math.max(...artwork.map((piece) => piece.left + piece.width));
+    return { card, pageTop: box.top + offset, left, width: right - left, pieces: artwork };
   });
-  for (const { card, origin } of cards) {
-    if (origin !== undefined) card.style.setProperty("--drum-origin", origin + "px");
-  }
   return { mobile, unit, start: (mobile ? 246 : 226) * unit, triggers, cards };
 }
 
@@ -216,7 +369,8 @@ function updateScroll(now) {
   lastFrameTime = now;
   if (layoutChanged || previousY !== heroY) renderHero(layout, heroY);
 
-  if (scrollDirty || layoutChanged) {
+  const drumGeometryChanged = scrollDirty || layoutChanged;
+  if (drumGeometryChanged) {
     scrollDirty = false;
     let nextSection = -1;
     for (const [index, trigger] of layout.triggers.entries()) {
@@ -224,10 +378,12 @@ function updateScroll(now) {
       if (y >= trigger + tolerance) nextSection = index;
     }
     activeSection = nextSection;
-    updateDrum(layout.cards, y);
     showLine(sections[activeSection]?.dataset.line ?? introduction);
   }
-  if (heroY !== target || heroVelocity) queueScrollFrame();
+  if (drumGeometryChanged || drumVideoPlaying) {
+    drumVideoPlaying = updateDrum(layout.cards, y, drumGeometryChanged);
+  }
+  if (heroY !== target || heroVelocity || drumVideoPlaying) queueScrollFrame();
 }
 
 function queueScrollFrame() {
@@ -327,6 +483,15 @@ function syncVideo(video) {
     if (reduceMotion.matches && video.hasAttribute("src")) {
       video.removeAttribute("src");
       video.load();
+    }
+  }
+}
+
+for (const { pieces } of drumCards) {
+  for (const piece of pieces) {
+    if (piece instanceof HTMLImageElement) piece.addEventListener("load", scheduleScroll);
+    if (piece instanceof HTMLVideoElement) {
+      for (const event of ["loadeddata", "play", "pause", "emptied"]) piece.addEventListener(event, scheduleScroll);
     }
   }
 }
