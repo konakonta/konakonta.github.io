@@ -144,6 +144,30 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 .globe img { width: 100%; height: auto; filter: invert(1); }
 .contact { right: calc(25 * var(--unit)); }
 
+.project-edge {
+  position: fixed;
+  z-index: 1;
+  inset-inline: 0;
+  width: min(100%, 1440px);
+  height: var(--edge-depth, 0px);
+  margin-inline: auto;
+  pointer-events: none;
+}
+.project-edge-top { top: 0; --blur-direction: to bottom; }
+.project-edge-bottom { bottom: 0; --blur-direction: to top; }
+.project-edge::before, .project-edge span, .project-edge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  clip-path: inset(var(--edge-clip-start, 0px) 0 var(--edge-clip-end, 0px));
+  -webkit-backdrop-filter: blur(var(--edge-blur));
+  backdrop-filter: blur(var(--edge-blur));
+  mask-image: linear-gradient(var(--blur-direction), #000 var(--blur-solid), transparent var(--blur-fade));
+}
+.project-edge::before { --edge-blur: 2px; --blur-solid: 42%; --blur-fade: 100%; }
+.project-edge span { --edge-blur: 5px; --blur-solid: 15%; --blur-fade: 72%; }
+.project-edge::after { --edge-blur: 10px; --blur-solid: 0%; --blur-fade: 44%; }
+
 .project {
   --unit: calc(100cqw / 1280);
   position: relative;
@@ -181,6 +205,10 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 }
 .piece img { width: 100%; height: 100%; object-fit: cover; }
 .piece.token-cover { height: auto; }
+section.project > .piece {
+  scale: var(--project-width, 1) 1;
+  transform-origin: calc(50cqw - var(--x) * var(--unit)) center;
+}
 .token-poster {
   background: url("./token-posters.webp") no-repeat 49.371% 94.521% / 296.578%;
 }
@@ -251,10 +279,13 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
     width: calc(var(--mw) * var(--unit));
     height: calc(var(--mh) * var(--unit));
   }
+  section.project > .piece { transform-origin: calc(50cqw - var(--mx) * var(--unit)) center; }
   .digital-video { border-radius: calc(10 * var(--unit)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .bubble { transition: none; }
   .greeting { transform: none; }
+  .project-edge { display: none; }
+  section.project > .piece { scale: none; }
 }
