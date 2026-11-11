@@ -17,7 +17,7 @@ const drumCards = [...document.querySelectorAll(".drum-card")].map((card) => ({
 const drumStrips = new WeakMap();
 const drumImages = new Map();
 const drumBandFraction = .08;
-const drumMaximumSqueeze = .08;
+const drumMaximumSqueeze = .04;
 const drumCurveMaximum = Math.expm1(5);
 let drumVideoPlaying = false;
 const videos = [...document.querySelectorAll("video[data-src]")];
