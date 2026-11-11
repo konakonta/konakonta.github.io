@@ -7,9 +7,8 @@ const speech = document.querySelector("#speech");
 const avatar = document.querySelector("#liza");
 const clock = document.querySelector(".clock");
 const sections = [...document.querySelectorAll("[data-line]")];
-const projects = sections.filter((section) => section.matches("section.project"));
 const projectPieces = [...document.querySelectorAll("section.project > .piece")];
-const projectEdge = document.querySelector(".project-edge");
+const pieceScales = new WeakMap();
 const videos = [...document.querySelectorAll("video[data-src]")];
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const smallScreen = matchMedia("(max-width: 650px)");
@@ -26,6 +25,9 @@ let line = null;
 let typingRun = 0;
 let scrollFrame = 0;
 
+const clampProgress = (value) => Math.max(0, Math.min(1, value));
+const smoothProgress = (value) => value * value * (3 - 2 * value);
+
 function updateClock() {
   const now = new Date();
   clock.textContent = weekday.format(now).toUpperCase() + " " + time.format(now);
@@ -36,8 +38,8 @@ function showLine(text, { animate = true } = {}) {
   if (line === text && animate) return;
   line = text;
   const run = ++typingRun;
-  bubbleSize.textContent = text;
   const done = () => {
+    bubbleSize.textContent = text;
     typed.textContent = text;
     speech.textContent = text;
     bubble.dataset.state = "idle";
@@ -49,11 +51,12 @@ function showLine(text, { animate = true } = {}) {
     return;
   }
 
-  typed.textContent = "";
   avatar.src = "./liza-blink.gif";
   bubble.dataset.state = "closed";
   setTimeout(() => {
     if (run !== typingRun) return;
+    bubbleSize.textContent = text;
+    typed.textContent = "";
     bubble.dataset.state = "opening";
     setTimeout(() => {
       if (run !== typingRun) return;
@@ -69,37 +72,29 @@ function showLine(text, { animate = true } = {}) {
         else done();
       }
       requestAnimationFrame(type);
-    }, 170);
-  }, 125);
+    }, 150);
+  }, 170);
 }
 
-function updateProjectEdges(mobile) {
-  if (reduceMotion.matches || !projectEdge || !projects.length) return;
+function updateProjectWidths(mobile) {
+  if (reduceMotion.matches) return;
 
   const height = innerHeight;
   const depth = mobile ? Math.min(128, height * .16) : Math.min(180, height * .19);
-  const galleryTop = projects[0].getBoundingClientRect().top;
-  const galleryBottom = projects.at(-1).getBoundingClientRect().bottom;
   const pieceWidths = projectPieces.map((piece) => {
     const { top, bottom } = piece.getBoundingClientRect();
-    if (bottom <= 0 || top >= height) return 1;
     const center = (top + bottom) / 2;
     const distance = Math.min(center, height - center);
-    const progress = Math.max(0, Math.min(1, 1 - distance / (depth * 1.25)));
-    const eased = progress * progress * (3 - 2 * progress);
-    return 1 + eased * (mobile ? .036 : .048);
+    const progress = smoothProgress(clampProgress(1 - distance / (depth * 1.25)));
+    const visible = Math.min(bottom, height) - Math.max(top, 0);
+    const edgeFade = smoothProgress(clampProgress(visible / 32));
+    return (1 + progress * edgeFade * (mobile ? .036 : .048)).toFixed(4);
   });
-
-  const clipStart = Math.max(0, galleryTop - (height - depth));
-  const clipEnd = Math.max(0, height - galleryBottom);
-  projectEdge.hidden = clipStart + clipEnd >= depth;
-  if (!projectEdge.hidden) {
-    projectEdge.style.setProperty("--edge-depth", depth + "px");
-    projectEdge.style.setProperty("--edge-clip-start", clipStart + "px");
-    projectEdge.style.setProperty("--edge-clip-end", clipEnd + "px");
-  }
   projectPieces.forEach((piece, index) => {
-    piece.style.setProperty("--project-width", pieceWidths[index].toFixed(4));
+    const scale = pieceWidths[index];
+    if (scale === pieceScales.get(piece)) return;
+    pieceScales.set(piece, scale);
+    piece.style.setProperty("--project-width", scale);
   });
 }
 
@@ -112,12 +107,7 @@ function updateScroll() {
   // Anchor the bottom of the letters 18 design pixels above the guide.
   const greetingBottom = start - 18 * unit;
   const y = Math.max(0, scrollY);
-  const progress = Math.min(1, y / Math.max(start, 1));
-
-  canvas.style.setProperty("--guide-top", Math.max(0, start - y) + "px");
-  canvas.style.setProperty("--hero-progress", progress);
-  greeting.style.setProperty("--greeting-anchor", greetingBottom + "px");
-  greeting.style.setProperty("--greeting-scale", Math.max(0, 1 - y / Math.max(greetingBottom, 1)));
+  const progress = clampProgress(y / Math.max(start, 1));
 
   let active = introduction;
   const projectLine = Math.min(mobile ? 240 : 330, innerHeight * .43);
@@ -130,8 +120,16 @@ function updateScroll() {
       active = section.dataset.line;
     }
   }
+
+  updateProjectWidths(mobile);
+  canvas.style.setProperty("--guide-top", Math.max(0, start - y) + "px");
+  canvas.style.setProperty("--hero-progress", mobile ? smoothProgress(progress) : progress);
+  if (mobile) {
+    canvas.style.setProperty("--mobile-contact-top", Math.max(18 * unit, 211 * unit - y) + "px");
+  }
+  greeting.style.setProperty("--greeting-anchor", greetingBottom + "px");
+  greeting.style.setProperty("--greeting-scale", Math.max(0, 1 - y / Math.max(greetingBottom, 1)));
   showLine(active);
-  updateProjectEdges(mobile);
 }
 
 function scheduleScroll() {
