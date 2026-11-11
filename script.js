@@ -1,10 +1,12 @@
 const canvas = document.querySelector(".canvas");
 const greeting = document.querySelector(".greeting");
+const guide = document.querySelector(".guide");
+const menu = document.querySelector(".top-menu");
 const bubble = document.querySelector("#bubble");
 const bubbleSize = document.querySelector("#bubble-size");
 const typed = document.querySelector("#typed");
 const speech = document.querySelector("#speech");
-const avatar = document.querySelector("#liza");
+const avatar = document.querySelector(".avatar");
 const clock = document.querySelector(".clock");
 const sections = [...document.querySelectorAll("[data-line]")];
 const farewellPhoto = document.querySelector(".farewell-photo");
@@ -23,123 +25,216 @@ const time = new Intl.DateTimeFormat("en-GB", {
 });
 
 let line = null;
+let requestedLine = introduction;
+let bubbleClosing = false;
 let typingRun = 0;
 let scrollFrame = 0;
+let scrollDirty = true;
+let layoutDirty = true;
+let layout;
+let activeSection = -1;
+let heroY;
+let heroVelocity = 0;
+let lastFrameTime = 0;
 
 const clampProgress = (value) => Math.max(0, Math.min(1, value));
 const smoothProgress = (value) => value * value * (3 - 2 * value);
 
 function updateClock() {
+  if (smallScreen.matches) return;
   const now = new Date();
   clock.textContent = weekday.format(now).toUpperCase() + " " + time.format(now);
   clock.dateTime = now.toISOString();
 }
 
+function afterBubbleTransition(callback) {
+  const animations = bubble.getAnimations();
+  if (animations.length) {
+    Promise.allSettled(animations.map((animation) => animation.finished)).then(callback);
+  } else {
+    requestAnimationFrame(() => requestAnimationFrame(callback));
+  }
+}
+
 function showLine(text, { animate = true } = {}) {
+  requestedLine = text;
   if (line === text && animate) return;
-  line = text;
-  const run = ++typingRun;
-  const done = () => {
-    bubbleSize.textContent = text;
-    typed.textContent = text;
-    speech.textContent = text;
+  const done = (message) => {
+    typed.textContent = message;
+    speech.textContent = message;
     bubble.dataset.state = "idle";
-    avatar.src = "./liza-blink.gif";
+    avatar.removeAttribute("data-talking");
   };
 
   if (reduceMotion.matches || !animate) {
-    done();
+    typingRun++;
+    line = text;
+    bubbleClosing = false;
+    bubbleSize.textContent = text;
+    done(text);
     return;
   }
 
-  avatar.src = "./liza-blink.gif";
+  if (bubbleClosing) return;
+  const run = ++typingRun;
+  bubbleClosing = true;
+  avatar.removeAttribute("data-talking");
   bubble.dataset.state = "closed";
-  setTimeout(() => {
+  afterBubbleTransition(() => {
     if (run !== typingRun) return;
-    bubbleSize.textContent = text;
+    bubbleClosing = false;
+    const message = requestedLine;
+    line = message;
+    bubbleSize.textContent = message;
     typed.textContent = "";
     bubble.dataset.state = "opening";
-    setTimeout(() => {
+    afterBubbleTransition(() => {
       if (run !== typingRun) return;
-      avatar.src = "./liza-talk.gif";
+      avatar.dataset.talking = "";
       bubble.dataset.state = "typing";
-      const characters = Array.from(text);
-      const start = performance.now();
+      const characters = Array.from(message);
+      let start;
+      let previousCount = 0;
       function type(now) {
         if (run !== typingRun) return;
+        start ??= now;
         const count = Math.min(characters.length, 1 + Math.floor((now - start) / 20));
-        typed.textContent = characters.slice(0, count).join("");
-        if (count < characters.length) requestAnimationFrame(type);
-        else done();
+        if (count >= characters.length) {
+          done(message);
+          return;
+        }
+        if (count !== previousCount) {
+          typed.textContent = characters.slice(0, count).join("");
+          previousCount = count;
+        }
+        requestAnimationFrame(type);
       }
       requestAnimationFrame(type);
-    }, 150);
-  }, 170);
+    });
+  });
 }
 
-function updateProjectWidths(mobile) {
+function updateProjectWidths({ mobile, height, pieces }, y) {
   if (reduceMotion.matches) return;
 
-  const height = innerHeight;
   const depth = mobile ? Math.min(128, height * .16) : Math.min(180, height * .19);
-  const pieceWidths = projectPieces.map((piece) => {
-    const { top, bottom } = piece.getBoundingClientRect();
+  for (const { piece, top: pageTop, bottom: pageBottom } of pieces) {
+    const top = pageTop - y;
+    const bottom = pageBottom - y;
     const center = (top + bottom) / 2;
     const distance = Math.min(center, height - center);
     const progress = smoothProgress(clampProgress(1 - distance / (depth * 1.25)));
     const visible = Math.min(bottom, height) - Math.max(top, 0);
     const edgeFade = smoothProgress(clampProgress(visible / 32));
-    return (1 + progress * edgeFade * (mobile ? .036 : .048)).toFixed(4);
-  });
-  projectPieces.forEach((piece, index) => {
-    const scale = pieceWidths[index];
-    if (scale === pieceScales.get(piece)) return;
+    const scale = (1 + progress * edgeFade * (mobile ? .036 : .048)).toFixed(4);
+    if (scale === pieceScales.get(piece)) continue;
     pieceScales.set(piece, scale);
     piece.style.setProperty("--project-width", scale);
-  });
+  }
 }
 
-function updateScroll() {
-  scrollFrame = 0;
+function measureLayout() {
   const mobile = smallScreen.matches;
-  const width = canvas.clientWidth;
-  const unit = width / (mobile ? 390 : 1280);
-  const start = (mobile ? 246 : 226) * unit;
-  // Anchor the bottom of the letters 18 design pixels above the guide.
-  const greetingBottom = start - 18 * unit;
-  const y = Math.max(0, scrollY);
-  const progress = clampProgress(y / Math.max(start, 1));
+  const unit = canvas.clientWidth / (mobile ? 390 : 1280);
+  const height = innerHeight;
+  const offset = scrollY;
+  const triggers = sections.map((section) => {
+    const top = section.getBoundingClientRect().top + offset;
+    if (!section.classList.contains("farewell")) {
+      return top - Math.min(mobile ? 240 : 330, height * .43);
+    }
+    let photoTop = top + 164 * unit;
+    if (mobile) {
+      const photo = farewellPhoto.getBoundingClientRect();
+      // The transparent GIF has a border above the visible photograph.
+      photoTop = photo.top + offset + photo.height / 3;
+    }
+    return photoTop - height * .82;
+  });
+  const pieces = projectPieces.map((piece) => {
+    const { top, bottom } = piece.getBoundingClientRect();
+    return { piece, top: top + offset, bottom: bottom + offset };
+  });
+  return { mobile, unit, height, start: (mobile ? 246 : 226) * unit, triggers, pieces };
+}
 
-  let active = introduction;
-  const projectLine = Math.min(mobile ? 240 : 330, innerHeight * .43);
-  for (const section of sections) {
-    const top = section.getBoundingClientRect().top;
-    if (section.classList.contains("farewell")) {
-      let photoTop = top + 164 * unit;
-      if (mobile) {
-        const photo = farewellPhoto.getBoundingClientRect();
-        // The transparent GIF has a border above the visible photograph.
-        photoTop = photo.top + photo.height / 3;
-      }
-      if (photoTop <= innerHeight * .82) active = section.dataset.line;
-    } else if (top <= projectLine) {
-      active = section.dataset.line;
+function renderHero({ mobile, unit, start }, y) {
+  const progress = clampProgress(y / Math.max(start, 1));
+  const guideTop = Math.max(0, start - y) + "px";
+  guide.style.setProperty("--guide-top", guideTop);
+  guide.style.setProperty("--hero-progress", mobile ? smoothProgress(progress) : progress);
+  if (mobile) {
+    menu.style.setProperty("--mobile-contact-top", Math.max(18 * unit, 211 * unit - y) + "px");
+    greeting.style.setProperty("--greeting-lift", -y + "px");
+  } else {
+    menu.style.setProperty("--guide-top", guideTop);
+  }
+  // Keep the bottom of the letters anchored above the guide while they shrink.
+  const anchor = start - 18 * unit;
+  greeting.style.setProperty("--greeting-anchor", anchor + "px");
+  greeting.style.setProperty("--greeting-scale", Math.max(0, 1 - y / Math.max(anchor, 1)));
+}
+
+function updateScroll(now) {
+  scrollFrame = 0;
+  const layoutChanged = layoutDirty;
+  if (layoutChanged) {
+    const next = measureLayout();
+    if (!layout || next.mobile !== layout.mobile || next.unit !== layout.unit) heroY = undefined;
+    layout = next;
+    layoutDirty = false;
+  }
+
+  const y = Math.max(0, scrollY);
+  const target = Math.min(y, layout.start);
+  const previousY = heroY;
+  if (heroY === undefined || !layout.mobile || reduceMotion.matches) {
+    heroY = target;
+    heroVelocity = 0;
+  } else if (heroY !== target || heroVelocity) {
+    // A critically damped spring eases into movement and settles without bouncing.
+    const dt = Math.min(24, Math.max(0, now - lastFrameTime));
+    const rate = .024;
+    const delta = heroY - target;
+    const step = (heroVelocity + rate * delta) * dt;
+    const decay = Math.exp(-rate * dt);
+    const next = target + (delta + step) * decay;
+    heroY = Math.max(0, Math.min(layout.start, next));
+    heroVelocity = next === heroY ? (heroVelocity - rate * step) * decay : 0;
+    if (Math.abs(heroY - target) < .1 && Math.abs(heroVelocity) < .01) {
+      heroY = target;
+      heroVelocity = 0;
     }
   }
+  lastFrameTime = now;
+  if (layoutChanged || previousY !== heroY) renderHero(layout, heroY);
 
-  updateProjectWidths(mobile);
-  canvas.style.setProperty("--guide-top", Math.max(0, start - y) + "px");
-  canvas.style.setProperty("--hero-progress", mobile ? smoothProgress(progress) : progress);
-  if (mobile) {
-    canvas.style.setProperty("--mobile-contact-top", Math.max(18 * unit, 211 * unit - y) + "px");
+  if (scrollDirty || layoutChanged) {
+    scrollDirty = false;
+    let nextSection = -1;
+    for (const [index, trigger] of layout.triggers.entries()) {
+      const tolerance = layout.mobile ? (index <= activeSection ? -12 : 12) : 0;
+      if (y >= trigger + tolerance) nextSection = index;
+    }
+    activeSection = nextSection;
+    updateProjectWidths(layout, y);
+    showLine(sections[activeSection]?.dataset.line ?? introduction);
   }
-  greeting.style.setProperty("--greeting-anchor", greetingBottom + "px");
-  greeting.style.setProperty("--greeting-scale", Math.max(0, 1 - y / Math.max(greetingBottom, 1)));
-  showLine(active);
+  if (heroY !== target || heroVelocity) queueScrollFrame();
+}
+
+function queueScrollFrame() {
+  if (!scrollFrame) scrollFrame = requestAnimationFrame(updateScroll);
 }
 
 function scheduleScroll() {
-  if (!scrollFrame) scrollFrame = requestAnimationFrame(updateScroll);
+  scrollDirty = true;
+  queueScrollFrame();
+}
+
+function refreshLayout() {
+  layoutDirty = true;
+  queueScrollFrame();
 }
 
 function syncVideo(video) {
@@ -174,13 +269,19 @@ if ("IntersectionObserver" in window) {
 }
 
 addEventListener("scroll", scheduleScroll, { passive: true });
-addEventListener("resize", scheduleScroll, { passive: true });
-addEventListener("pageshow", scheduleScroll);
+addEventListener("resize", refreshLayout, { passive: true });
+addEventListener("pageshow", refreshLayout);
+if ("ResizeObserver" in window) {
+  const observer = new ResizeObserver(refreshLayout);
+  observer.observe(canvas);
+  observer.observe(document.querySelector(".token-cover"));
+}
 reduceMotion.addEventListener("change", () => {
-  showLine(line ?? introduction, { animate: false });
+  showLine(requestedLine, { animate: false });
   videos.forEach(syncVideo);
   scheduleScroll();
 });
+canvas.dataset.mobileMotion = "";
 updateClock();
 setInterval(updateClock, 250);
-updateScroll();
+updateScroll(performance.now());

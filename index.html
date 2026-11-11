@@ -7,9 +7,8 @@
   <meta name="description" content="Selected graphic design projects by Lisa Furina, from digital to physical.">
   <title>Lisa Furina — Graphic Design Portfolio</title>
   <link rel="icon" href="./globe-still.webp" type="image/webp">
-  <link rel="stylesheet" href="./styles.css?v=7">
-  <link rel="preload" as="image" href="./liza-talk.gif">
-  <script src="./script.js?v=7" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=8">
+  <script src="./script.js?v=8" defer></script>
 </head>
 <body>
   <div class="canvas">
@@ -19,10 +18,16 @@
     </header>
 
     <aside class="guide" aria-label="Portfolio guide">
-      <picture class="avatar">
-        <source media="(prefers-reduced-motion: reduce)" srcset="./liza-still.webp">
-        <img id="liza" src="./liza-blink.gif" alt="" width="1120" height="1180">
-      </picture>
+      <div class="avatar" aria-hidden="true">
+        <picture class="avatar-idle">
+          <source media="(prefers-reduced-motion: reduce)" srcset="./liza-still.webp">
+          <img src="./liza-blink.gif" alt="" width="1120" height="1180">
+        </picture>
+        <picture class="avatar-talk">
+          <source media="(prefers-reduced-motion: reduce)" srcset="./liza-still.webp">
+          <img src="./liza-talk.gif" alt="" width="1120" height="1180">
+        </picture>
+      </div>
       <div class="bubble" id="bubble">
         <span class="bubble-size" id="bubble-size" aria-hidden="true">I'm 3+ year graphic designer you can find design cases below. I do many stuff from digital to physical. Scroll down and I'll follow you along ↓</span>
         <span class="bubble-copy" aria-hidden="true"><span id="typed">I'm 3+ year graphic designer you can find design cases below. I do many stuff from digital to physical. Scroll down and I'll follow you along ↓</span><span class="caret"></span></span>
