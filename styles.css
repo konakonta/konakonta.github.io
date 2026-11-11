@@ -193,11 +193,11 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 }
 .piece img { width: 100%; height: 100%; object-fit: cover; }
 .piece.token-cover { height: auto; }
-section.project > :is(.piece:not(.sticker), .festival-grid) {
-  scale: var(--project-width, 1) 1;
-  transform-origin: calc(50cqw - var(--x, 0) * var(--unit)) center;
+.drum-card {
+  transform: scaleX(var(--drum-scale, 1));
+  transform-origin: var(--drum-origin, center) center;
 }
-.festival-grid { position: absolute; inset: 0; }
+.drum-collage { position: absolute; inset: 0; }
 .token-poster {
   background: url("./token-posters.webp") no-repeat 49.371% 94.521% / 296.578%;
 }
@@ -292,29 +292,33 @@ section.project > :is(.piece:not(.sticker), .festival-grid) {
     translate: -50% 0;
   }
   .festival-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: calc(161 * var(--unit)) calc(194 * var(--unit)) calc(265 * var(--unit));
-    grid-template-areas: "caps caps" "pouch merch" "tote keychain";
-    align-content: start;
-    gap: calc(2 * var(--unit));
-    padding-top: calc(19 * var(--unit));
+    --festival-top: 19;
+    --festival-cover-height: 161;
+    --festival-gap: 2;
+    --festival-column: calc((390 - var(--festival-gap)) / 2);
+    --festival-middle: calc(var(--festival-top) + var(--festival-cover-height) + var(--festival-gap));
+    --festival-bottom: calc(var(--festival-middle) + var(--festival-column) + var(--festival-gap));
   }
-  .festival-grid > .piece:not(.sticker) {
-    position: static;
-    width: 100%;
-    height: 100%;
-    min-width: 0;
-    min-height: 0;
+  /* Keep each image and video at its row height in mobile browsers. */
+  .festival-grid > :where(.piece:not(.sticker)) {
+    --mx: 0;
+    --mw: var(--festival-column);
   }
-  .festival-grid > .cap { grid-area: caps; }
-  .festival-grid > .circle { grid-area: merch; }
-  .festival-tote { grid-area: tote; }
-  .festival-pouch { grid-area: pouch; }
-  .festival-keychain { grid-area: keychain; }
-  section.project > :is(.piece:not(.sticker), .festival-grid) {
-    transform-origin: calc(50cqw - var(--mx, 0) * var(--unit)) center;
-    transition: scale 140ms cubic-bezier(.2,.65,.3,1);
+  .festival-grid > .cap {
+    --my: var(--festival-top);
+    --mw: 390;
+    --mh: var(--festival-cover-height);
+  }
+  .festival-grid > :is(.festival-pouch, .circle) {
+    --my: var(--festival-middle);
+    --mh: var(--festival-column);
+  }
+  .festival-grid > :is(.festival-tote, .festival-keychain) {
+    --my: var(--festival-bottom);
+    --mh: 265;
+  }
+  .festival-grid > :is(.circle, .festival-keychain) {
+    --mx: calc(var(--festival-column) + var(--festival-gap));
   }
   .digital-video { border-radius: calc(10 * var(--unit)); }
 }
@@ -333,5 +337,5 @@ section.project > :is(.piece:not(.sticker), .festival-grid) {
   .avatar picture { transition: none; }
   .bubble { transition: none; }
   .greeting { transform: none; transition: none; }
-  section.project > :is(.piece:not(.sticker), .festival-grid) { scale: none; transition: none; }
+  .drum-card { transform: none; }
 }

@@ -10,8 +10,12 @@ const avatar = document.querySelector(".avatar");
 const clock = document.querySelector(".clock");
 const sections = [...document.querySelectorAll("[data-line]")];
 const farewellPhoto = document.querySelector(".farewell-photo");
-const projectPieces = [...document.querySelectorAll("section.project > :is(.piece:not(.sticker), .festival-grid)")];
-const pieceScales = new WeakMap();
+const drumCards = [...document.querySelectorAll(".drum-card")].map((card) => ({
+  card,
+  pieces: card.classList.contains("drum-collage") ? [...card.querySelectorAll(".piece:not(.sticker)")] : [card],
+}));
+const drumScales = new WeakMap();
+const drumCurveMaximum = Math.expm1(5);
 const videos = [...document.querySelectorAll("video[data-src]")];
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const smallScreen = matchMedia("(max-width: 650px)");
@@ -114,22 +118,19 @@ function showLine(text, { animate = true } = {}) {
   });
 }
 
-function updateProjectWidths({ mobile, height, pieces }, y) {
+function updateDrum(cards, y) {
   if (reduceMotion.matches) return;
 
-  const depth = mobile ? Math.min(128, height * .16) : Math.min(180, height * .19);
-  for (const { piece, top: pageTop, bottom: pageBottom } of pieces) {
-    const top = pageTop - y;
-    const bottom = pageBottom - y;
-    const center = (top + bottom) / 2;
-    const distance = Math.min(center, height - center);
-    const progress = smoothProgress(clampProgress(1 - distance / (depth * 1.25)));
-    const visible = Math.min(bottom, height) - Math.max(top, 0);
-    const edgeFade = smoothProgress(clampProgress(visible / 32));
-    const scale = (1 + progress * edgeFade * (mobile ? .036 : .048)).toFixed(4);
-    if (scale === pieceScales.get(piece)) continue;
-    pieceScales.set(piece, scale);
-    piece.style.setProperty("--project-width", scale);
+  const viewport = window.visualViewport;
+  const height = viewport?.height || innerHeight;
+  const viewportTop = y + (viewport?.offsetTop ?? 0);
+  for (const { card, pageBottom } of cards) {
+    const bottom = pageBottom - viewportTop;
+    const t = clampProgress((bottom / height - .62) / .38);
+    const scale = 1 - .08 * Math.expm1(5 * t) / drumCurveMaximum;
+    if (scale === drumScales.get(card)) continue;
+    drumScales.set(card, scale);
+    card.style.setProperty("--drum-scale", scale);
   }
 }
 
@@ -151,11 +152,17 @@ function measureLayout() {
     }
     return photoTop - height * .82;
   });
-  const pieces = projectPieces.map((piece) => {
-    const { top, bottom } = piece.getBoundingClientRect();
-    return { piece, top: top + offset, bottom: bottom + offset };
+  const cards = drumCards.map(({ card, pieces }) => {
+    const pageBottom = Math.max(...pieces.map((piece) => piece.getBoundingClientRect().bottom)) + offset;
+    if (pieces.length === 1) return { card, pageBottom };
+    const left = Math.min(...pieces.map((piece) => piece.offsetLeft));
+    const right = Math.max(...pieces.map((piece) => piece.offsetLeft + piece.offsetWidth));
+    return { card, pageBottom, origin: (left + right) / 2 };
   });
-  return { mobile, unit, height, start: (mobile ? 246 : 226) * unit, triggers, pieces };
+  for (const { card, origin } of cards) {
+    if (origin !== undefined) card.style.setProperty("--drum-origin", origin + "px");
+  }
+  return { mobile, unit, start: (mobile ? 246 : 226) * unit, triggers, cards };
 }
 
 function renderHero({ mobile, unit, start }, y) {
@@ -217,7 +224,7 @@ function updateScroll(now) {
       if (y >= trigger + tolerance) nextSection = index;
     }
     activeSection = nextSection;
-    updateProjectWidths(layout, y);
+    updateDrum(layout.cards, y);
     showLine(sections[activeSection]?.dataset.line ?? introduction);
   }
   if (heroY !== target || heroVelocity) queueScrollFrame();
@@ -341,6 +348,8 @@ if ("IntersectionObserver" in window) {
 
 addEventListener("scroll", scheduleScroll, { passive: true });
 addEventListener("resize", refreshLayout, { passive: true });
+window.visualViewport?.addEventListener("resize", scheduleScroll, { passive: true });
+window.visualViewport?.addEventListener("scroll", scheduleScroll, { passive: true });
 addEventListener("pageshow", refreshLayout);
 if ("ResizeObserver" in window) {
   const observer = new ResizeObserver(refreshLayout);
