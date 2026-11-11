@@ -133,7 +133,9 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
   white-space: nowrap;
 }
 .index-link, .contact { pointer-events: auto; text-decoration: none; }
-.index-link:hover, .contact:hover { text-decoration: underline; }
+@media (hover: hover) {
+  .contact:hover { opacity: .7; }
+}
 .index-link { left: calc(438 * var(--unit)); }
 .clock { left: calc(850 * var(--unit)); }
 .globe {
@@ -147,14 +149,13 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 .project-edge {
   position: fixed;
   z-index: 1;
+  bottom: 0;
   inset-inline: 0;
   width: min(100%, 1440px);
   height: var(--edge-depth, 0px);
   margin-inline: auto;
   pointer-events: none;
 }
-.project-edge-top { top: 0; --blur-direction: to bottom; }
-.project-edge-bottom { bottom: 0; --blur-direction: to top; }
 .project-edge::before, .project-edge span, .project-edge::after {
   content: "";
   position: absolute;
@@ -162,7 +163,7 @@ a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
   clip-path: inset(var(--edge-clip-start, 0px) 0 var(--edge-clip-end, 0px));
   -webkit-backdrop-filter: blur(var(--edge-blur));
   backdrop-filter: blur(var(--edge-blur));
-  mask-image: linear-gradient(var(--blur-direction), #000 var(--blur-solid), transparent var(--blur-fade));
+  mask-image: linear-gradient(to top, #000 var(--blur-solid), transparent var(--blur-fade));
 }
 .project-edge::before { --edge-blur: 2px; --blur-solid: 42%; --blur-fade: 100%; }
 .project-edge span { --edge-blur: 5px; --blur-solid: 15%; --blur-fade: 72%; }
